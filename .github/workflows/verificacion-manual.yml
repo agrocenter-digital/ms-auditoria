@@ -1,0 +1,26 @@
+name: Verificacion manual ms-auditoria
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      KINESIS_CONSUMER_ENABLED: "false"
+      AWS_EC2_METADATA_DISABLED: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Pruebas disponibles sin PostgreSQL externo
+        run: mvn -B test
+      - name: Construir imagen sin publicar
+        run: docker build -t agrocenter-auditoria-verificacion:local .
