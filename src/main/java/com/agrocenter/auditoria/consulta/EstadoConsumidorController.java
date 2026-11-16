@@ -23,11 +23,11 @@ public class EstadoConsumidorController {
 
     @GetMapping("/estado-consumidor")
     public Estado estado() {
-        if (!habilitado) return new Estado("DESACTIVADO");
+        if (!habilitado) return new Estado("DESACTIVADO", java.util.List.of());
         var actual = consumidor.getIfAvailable();
-        if (actual == null) return new Estado("DESCONOCIDO");
-        return new Estado(Status.UP.equals(actual.health().getStatus()) ? "LECTURAS_RECIENTES" : "NO_SALUDABLE");
+        if (actual == null) return new Estado("DESCONOCIDO", java.util.List.of());
+        return new Estado(Status.UP.equals(actual.health().getStatus()) ? "LECTURAS_RECIENTES" : "NO_SALUDABLE", actual.lecturas());
     }
 
-    public record Estado(String estado) { }
+    public record Estado(String estado, java.util.List<AuditoriaKinesisConsumers.LecturaShard> lecturas) { }
 }

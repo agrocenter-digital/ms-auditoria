@@ -1,6 +1,8 @@
 package com.agrocenter.auditoria.kinesis;
 
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -41,6 +43,27 @@ final class EstadoConsumidores {
                 : Health.up().withDetail("kinesis", "lecturas recientes").build();
     }
 
+    List<AuditoriaKinesisConsumers.LecturaShard> detalle(Map<String, String> nombres, long maxSilenceMs, boolean deteniendo) {
+        long now = System.nanoTime();
+        List<AuditoriaKinesisConsumers.LecturaShard> resultado = new ArrayList<>();
+        for (var entry : streams.entrySet()) {
+            String aplicacion = entry.getKey();
+            Stream stream = entry.getValue();
+            boolean activo = !deteniendo && !stream.fatal.get() && stream.worker != null && stream.worker.isAlive();
+            if (stream.shards.isEmpty()) {
+                resultado.add(new AuditoriaKinesisConsumers.LecturaShard(nombres.get(aplicacion), aplicacion, null, null, null, true, false, activo));
+            } else for (var shardEntry : stream.shards.entrySet()) {
+                Shard shard = shardEntry.getValue();
+                long observado = shard.observedAt;
+                Long edad = observado == 0 ? null : Math.max(0, elapsedMs(now, observado));
+                resultado.add(new AuditoriaKinesisConsumers.LecturaShard(nombres.get(aplicacion), aplicacion, shardEntry.getKey(),
+                        observado == 0 ? null : shard.lagMs, edad, edad == null || edad > maxSilenceMs, shard.retrying, activo));
+            }
+        }
+        resultado.sort(java.util.Comparator.comparing(AuditoriaKinesisConsumers.LecturaShard::aplicacion)
+                .thenComparing(x -> x.shard() == null ? "" : x.shard()));
+        return List.copyOf(resultado);
+    }
     private static long elapsedMs(long now, long before) { return TimeUnit.NANOSECONDS.toMillis(now - before); }
 
     static final class Stream {
